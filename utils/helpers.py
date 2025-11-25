@@ -42,16 +42,16 @@ class FigureConverter:
     """Преобразует фигуры Matplotlib в пригодные для Qt пиксмапы."""
 
     @staticmethod
-    def to_pixmap(figure: plt.Figure) -> QPixmap:
+    def to_pixmap(figure: plt.Figure) -> QPixmap:  
         if QPixmap is None:
             raise ImportError(
                 "PySide6 недоступен, поэтому нельзя создать QPixmap."
             ) from _QT_IMPORT_ERROR
         buffer = BytesIO()
-        figure.savefig(buffer, format="png")
+        figure.savefig(buffer, format="png", dpi=100, bbox_inches='tight')
         buffer.seek(0)
         pixmap = QPixmap()
-        pixmap.loadFromData(buffer.read(), "PNG")
+        pixmap.loadFromData(buffer.getvalue(), "PNG")
         plt.close(figure)
         return pixmap
 
