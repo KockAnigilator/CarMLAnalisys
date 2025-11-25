@@ -29,7 +29,7 @@ from utils import WorkerThread, humanize_shape
 
 
 class DataTab(QWidget):
-    """Manage dataset loading and preprocessing controls."""
+    """Отвечает за загрузку датасета и параметры предобработки."""
 
     data_loaded = Signal(pd.DataFrame)
     data_preprocessed = Signal(pd.DataFrame)
@@ -150,7 +150,7 @@ class DataTab(QWidget):
         )
         self.data_preprocessed.emit(dataframe)
 
-    def _on_error(self, error: Exception) -> None:  # pragma: no cover - GUI feedback
+    def _on_error(self, error: Exception) -> None:  # pragma: no cover - обратная связь GUI
         self.summary_text.append(f"\nОшибка: {error}")
         self.progress.setValue(0)
 

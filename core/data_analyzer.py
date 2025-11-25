@@ -19,7 +19,7 @@ class VisualizationArtifacts:
 
 
 class DataAnalyzer:
-    """Generate descriptive statistics and visualizations."""
+    """Генерирует описательную статистику и визуализации."""
 
     def __init__(self) -> None:
         MatplotlibStyler.apply()

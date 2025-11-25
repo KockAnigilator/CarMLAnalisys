@@ -1,4 +1,4 @@
-"""Core data analysis components for CarMLAnalysis."""
+"""Основные компоненты анализа данных для CarMLAnalysis."""
 
 from .data_loader import DataLoader
 from .data_preprocessor import DataPreprocessor, PreprocessingConfig

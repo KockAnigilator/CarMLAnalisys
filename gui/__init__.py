@@ -1,4 +1,4 @@
-"""GUI package exposing PySide6 widgets for the CarMLAnalysis app."""
+"""GUI-пакет, предоставляющий виджеты PySide6 для CarMLAnalysis."""
 
 from .main_window import MainWindow
 from .data_tab import DataTab

@@ -20,7 +20,7 @@ class AnalysisArtifacts:
 
 
 class CarPricePredictor:
-    """Coordinate the full analytics workflow."""
+    """Координирует полный аналитический конвейер."""
 
     def __init__(self) -> None:
         self.loader = DataLoader()

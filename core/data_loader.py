@@ -10,7 +10,7 @@ import pandas as pd
 
 @dataclass
 class DataSummary:
-    """Container describing the high-level characteristics of a dataset."""
+    """Контейнер, описывающий ключевые характеристики набора данных."""
 
     shape: tuple[int, int]
     head: pd.DataFrame
@@ -20,7 +20,7 @@ class DataSummary:
 
 
 class DataLoader:
-    """Handle locating CSV sources and loading them into pandas."""
+    """Отвечает за поиск CSV и загрузку их в pandas."""
 
     def __init__(self) -> None:
         self.dataframe: Optional[pd.DataFrame] = None

@@ -19,7 +19,7 @@ from utils import FigureConverter, WorkerThread
 
 
 class AnalysisTab(QWidget):
-    """Display statistics and generated visualizations."""
+    """Показывает статистику и построенные визуализации."""
 
     def __init__(self, predictor: CarPricePredictor, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -111,7 +111,7 @@ class AnalysisTab(QWidget):
         if viz and viz.correlation_heatmap:
             self.corr_label.setPixmap(FigureConverter.to_pixmap(viz.correlation_heatmap))
 
-    def _on_error(self, error: Exception) -> None:  # pragma: no cover - GUI feedback
+    def _on_error(self, error: Exception) -> None:  # pragma: no cover - обратная связь GUI
         self.numeric_label.setText(f"Ошибка: {error}")
         self.progress.setValue(0)
 

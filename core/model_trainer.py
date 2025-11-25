@@ -24,7 +24,7 @@ class ModelTrainingResult:
 
 
 class ModelTrainer:
-    """Train and evaluate machine learning models."""
+    """Обучает и оценивает модели машинного обучения."""
 
     def __init__(self, target_column: str = "price") -> None:
         self.target_column = target_column

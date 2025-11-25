@@ -8,7 +8,7 @@ import pandas as pd
 
 @dataclass
 class PreprocessingConfig:
-    """User-adjustable preprocessing parameters."""
+    """Параметры предобработки, доступные пользователю."""
 
     target_column: str = "price"
     drop_columns: list[str] = field(default_factory=lambda: ["car_ID", "carwidth"])
@@ -18,7 +18,7 @@ class PreprocessingConfig:
 
 
 class DataPreprocessor:
-    """Perform cleaning, imputations, and categorical encoding."""
+    """Выполняет очистку, заполнение пропусков и кодирование категорий."""
 
     def __init__(self, config: Optional[PreprocessingConfig] = None) -> None:
         self.config = config or PreprocessingConfig()

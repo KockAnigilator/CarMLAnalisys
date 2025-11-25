@@ -1,4 +1,4 @@
-"""Utility helpers for CarMLAnalysis."""
+"""Утилитарные помощники для CarMLAnalysis."""
 
 from .helpers import (
     FigureConverter,

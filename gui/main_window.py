@@ -12,7 +12,7 @@ from .model_tab import ModelTab
 
 
 class MainWindow(QMainWindow):
-    """Primary application window hosting the workflow tabs."""
+    """Главное окно приложения с вкладками рабочего процесса."""
 
     def __init__(self, predictor: Optional[CarPricePredictor] = None) -> None:
         super().__init__()

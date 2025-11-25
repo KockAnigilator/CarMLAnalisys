@@ -25,7 +25,7 @@ from utils import WorkerThread
 
 
 class ModelTab(QWidget):
-    """Train, evaluate, and persist machine learning models."""
+    """Обучает, оценивает и сохраняет модели машинного обучения."""
 
     def __init__(self, predictor: CarPricePredictor, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -169,7 +169,7 @@ class ModelTab(QWidget):
             self.selected_model = self.model_selector.currentText()
         self.model_selector.blockSignals(False)
 
-    def _on_error(self, error: Exception) -> None:  # pragma: no cover - GUI feedback
+    def _on_error(self, error: Exception) -> None:  # pragma: no cover - обратная связь GUI
         self.metrics_text.append(f"Ошибка: {error}")
         self.progress.setValue(0)
 
