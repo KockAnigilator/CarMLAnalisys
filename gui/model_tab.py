@@ -32,6 +32,7 @@ class ModelTab(QWidget):
         self.predictor = predictor
         self.models_ready = False
         self.selected_model = "random_forest"
+        self.current_worker: Optional[WorkerThread] = None
         self._init_ui()
 
     def _init_ui(self) -> None:
@@ -81,6 +82,12 @@ class ModelTab(QWidget):
         layout.addLayout(model_actions)
         layout.addWidget(self.progress)
 
+    def _cleanup_worker(self) -> None:
+        """Безопасно завершает текущий worker."""
+        if self.current_worker and self.current_worker.isRunning():
+            self.current_worker.stop()
+        self.current_worker = None
+
     def _on_model_changed(self, model_name: str) -> None:
         if model_name:
             self.selected_model = model_name
@@ -96,16 +103,18 @@ class ModelTab(QWidget):
             self.metrics_text.setPlainText("Проверьте корректность параметров.")
             return
 
-        worker = WorkerThread(
+        self._cleanup_worker()
+
+        self.current_worker = WorkerThread(
             self.predictor.train_models,
             test_size=test_size,
             random_state=random_state,
             rf_estimators=self.estimators_input.value(),
         )
-        worker.signals.progress.connect(self.progress.setValue)
-        worker.signals.finished.connect(self._on_trained)
-        worker.signals.error.connect(self._on_error)
-        worker.start()
+        self.current_worker.signals.progress.connect(self.progress.setValue)
+        self.current_worker.signals.finished.connect(self._on_trained)
+        self.current_worker.signals.error.connect(self._on_error)
+        self.current_worker.start()
 
     def _on_trained(self, results) -> None:
         self.progress.setValue(100)
@@ -116,6 +125,7 @@ class ModelTab(QWidget):
             metrics = ", ".join(f"{k.upper()}: {v:.4f}" for k, v in result.metrics.items())
             message_lines.append(f"{name}: {metrics}")
         self.metrics_text.setPlainText("\n".join(message_lines))
+        self._cleanup_worker()
 
     def _save_model(self) -> None:
         if not self.models_ready:
@@ -153,10 +163,30 @@ class ModelTab(QWidget):
         )
         if not file_path:
             return
-        dataframe = pd.read_csv(file_path)
-        preds = self.predictor.predict(dataframe, self.selected_model)
-        preview = preds.head().to_string(index=False)
-        self.metrics_text.append(f"Предсказания ({self.selected_model}):\n{preview}")
+        
+        try:
+            dataframe = pd.read_csv(file_path)
+            if dataframe.empty:
+                self.metrics_text.append("Ошибка: CSV файл пуст.")
+                return
+            
+            # Используем predict_raw для автоматической предобработки
+            preds = self.predictor.predict_raw(dataframe, self.selected_model)
+            
+            # Показываем только предсказания
+            preview_cols = [col for col in preds.columns if col == 'predicted_price' or col in dataframe.columns[:5]]
+            preview = preds[preview_cols].head(10).to_string(index=False)
+            self.metrics_text.append(f"Предсказания ({self.selected_model}):\n{preview}")
+            
+            # Предложить сохранение
+            save_path, _ = QFileDialog.getSaveFileName(
+                self, "Сохранить предсказания", "predictions.csv", "CSV Files (*.csv)"
+            )
+            if save_path:
+                preds.to_csv(save_path, index=False)
+                self.metrics_text.append(f"Предсказания сохранены в: {save_path}")
+        except Exception as e:
+            self.metrics_text.append(f"Ошибка при предсказании: {str(e)}")
 
     def _refresh_model_selector(self, model_names) -> None:
         self.model_selector.blockSignals(True)
@@ -172,4 +202,10 @@ class ModelTab(QWidget):
     def _on_error(self, error: Exception) -> None:  # pragma: no cover - обратная связь GUI
         self.metrics_text.append(f"Ошибка: {error}")
         self.progress.setValue(0)
+        self._cleanup_worker()
+
+    def closeEvent(self, event) -> None:
+        """Гарантируем завершение потоков при закрытии вкладки."""
+        self._cleanup_worker()
+        event.accept()
 

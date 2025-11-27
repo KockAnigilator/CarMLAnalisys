@@ -37,11 +37,17 @@ class ModelTrainer:
         random_state: int = 42,
         rf_estimators: int = 300,
     ) -> dict[str, ModelTrainingResult]:
+        if dataframe.empty:
+            raise ValueError("Dataframe is empty. Cannot train models.")
+        
         if self.target_column not in dataframe.columns:
             raise ValueError(f"Target column '{self.target_column}' was not found.")
 
         X = dataframe.drop(columns=[self.target_column])
         y = dataframe[self.target_column]
+        
+        if X.empty or len(X) < 2:
+            raise ValueError("Not enough data to train models.")
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state
@@ -50,21 +56,34 @@ class ModelTrainer:
         categorical_features = X.select_dtypes(exclude="number").columns.tolist()
         numeric_features = X.select_dtypes(include="number").columns.tolist()
 
-        preprocessor = ColumnTransformer(
-            transformers=[
+        # Создаем трансформеры только для существующих типов данных
+        transformers = []
+        
+        if numeric_features:
+            transformers.append(
                 (
                     "num",
                     Pipeline([("scaler", StandardScaler())]),
                     numeric_features,
-                ),
+                )
+            )
+        
+        if categorical_features:
+            transformers.append(
                 (
                     "cat",
                     Pipeline(
-                        [("encoder", OneHotEncoder(handle_unknown="ignore"))]
+                        [("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False))]
                     ),
                     categorical_features,
-                ),
-            ],
+                )
+            )
+        
+        if not transformers:
+            raise ValueError("Нет признаков для обучения. Проверьте предобработку.")
+
+        preprocessor = ColumnTransformer(
+            transformers=transformers,
             remainder="drop",
         )
 
@@ -109,10 +128,11 @@ class ModelTrainer:
 
     @staticmethod
     def _evaluate(y_true: pd.Series, y_pred: np.ndarray) -> Dict[str, float]:
+        mse = mean_squared_error(y_true, y_pred)
         return {
             "mae": mean_absolute_error(y_true, y_pred),
-            "mse": mean_squared_error(y_true, y_pred),
-            "rmse": mean_squared_error(y_true, y_pred, squared=False),
+            "mse": mse,
+            "rmse": np.sqrt(mse),  # Вычисляем RMSE вручную для совместимости
             "r2": r2_score(y_true, y_pred),
         }
 

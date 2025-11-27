@@ -51,8 +51,14 @@ class DataAnalyzer:
         rows = []
         for column in categorical_df.columns:
             series = categorical_df[column].dropna()
-            mode = series.mode().iloc[0] if not series.empty else ""
-            mode_freq = (series == mode).sum()
+            if not series.empty:
+                mode_values = series.mode()
+                mode = mode_values.iloc[0] if len(mode_values) > 0 else ""
+                mode_freq = (series == mode).sum() if mode != "" else 0
+            else:
+                mode = ""
+                mode_freq = 0
+            
             rows.append(
                 {
                     "column": column,
@@ -62,7 +68,9 @@ class DataAnalyzer:
                     "mode_percentage": mode_freq / max(len(series), 1),
                 }
             )
-        stats = pd.DataFrame(rows).set_index("column")
+        stats = pd.DataFrame(rows)
+        if len(stats) > 0:
+            stats = stats.set_index("column")
         if output_path:
             stats.to_csv(output_path, index=True)
         return stats
@@ -71,10 +79,15 @@ class DataAnalyzer:
         self, dataframe: pd.DataFrame, target_column: str
     ) -> VisualizationArtifacts:
         artifacts = VisualizationArtifacts()
+        if dataframe.empty:
+            return artifacts
+        
         if target_column not in dataframe.columns:
             return artifacts
 
-        price_series = dataframe[target_column]
+        price_series = dataframe[target_column].dropna()
+        if price_series.empty:
+            return artifacts
 
         fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
         sns.histplot(price_series, kde=True, ax=ax_hist)

@@ -18,7 +18,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.predictor = predictor or CarPricePredictor()
         self.setWindowTitle("Car ML Analysis")
-        self.resize(1400, 900)
+        # Разрешение 16:9
+        self.resize(1600, 900)
         self._init_ui()
 
     def _init_ui(self) -> None:
@@ -34,3 +35,13 @@ class MainWindow(QMainWindow):
         tabs.addTab(self.model_tab, "Модели")
         self.setCentralWidget(tabs)
 
+    def closeEvent(self, event) -> None:
+        """Гарантируем завершение всех потоков при закрытии приложения."""
+        # Вызываем cleanup для всех вкладок
+        if hasattr(self, 'data_tab'):
+            self.data_tab._cleanup_worker()
+        if hasattr(self, 'analysis_tab'):
+            self.analysis_tab._cleanup_worker()
+        if hasattr(self, 'model_tab'):
+            self.model_tab._cleanup_worker()
+        event.accept()

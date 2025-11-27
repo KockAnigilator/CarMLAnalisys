@@ -25,6 +25,7 @@ class AnalysisTab(QWidget):
         super().__init__(parent)
         self.predictor = predictor
         self.cleaned_ready = False
+        self.current_worker: Optional[WorkerThread] = None
         self._init_ui()
 
     def _init_ui(self) -> None:
@@ -70,6 +71,12 @@ class AnalysisTab(QWidget):
         self.output_dir = Path.cwd() / "artifacts"
         self.output_dir.mkdir(exist_ok=True)
 
+    def _cleanup_worker(self) -> None:
+        """Безопасно завершает текущий worker."""
+        if self.current_worker and self.current_worker.isRunning():
+            self.current_worker.stop()
+        self.current_worker = None
+
     def on_data_preprocessed(self, *_args) -> None:
         self.cleaned_ready = True
 
@@ -86,11 +93,13 @@ class AnalysisTab(QWidget):
             self.numeric_label.setText("Сначала выполните предобработку.")
             return
 
-        worker = WorkerThread(self.predictor.analyze, self.output_dir)
-        worker.signals.progress.connect(self.progress.setValue)
-        worker.signals.finished.connect(self._on_analysis_ready)
-        worker.signals.error.connect(self._on_error)
-        worker.start()
+        self._cleanup_worker()
+
+        self.current_worker = WorkerThread(self.predictor.analyze, self.output_dir)
+        self.current_worker.signals.progress.connect(self.progress.setValue)
+        self.current_worker.signals.finished.connect(self._on_analysis_ready)
+        self.current_worker.signals.error.connect(self._on_error)
+        self.current_worker.start()
 
     def _on_analysis_ready(self, artifacts) -> None:
         self.progress.setValue(100)
@@ -110,8 +119,16 @@ class AnalysisTab(QWidget):
             self.box_label.setPixmap(FigureConverter.to_pixmap(viz.price_box))
         if viz and viz.correlation_heatmap:
             self.corr_label.setPixmap(FigureConverter.to_pixmap(viz.correlation_heatmap))
+        
+        self._cleanup_worker()
 
     def _on_error(self, error: Exception) -> None:  # pragma: no cover - обратная связь GUI
         self.numeric_label.setText(f"Ошибка: {error}")
         self.progress.setValue(0)
+        self._cleanup_worker()
+
+    def closeEvent(self, event) -> None:
+        """Гарантируем завершение потоков при закрытии вкладки."""
+        self._cleanup_worker()
+        event.accept()
 

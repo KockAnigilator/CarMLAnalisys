@@ -32,14 +32,28 @@ class DataLoader:
         return sorted(directory.glob("*.csv"))
 
     def load_csv(self, path: str | Path) -> pd.DataFrame:
-        csv_path = Path(path)
-        self.dataframe = pd.read_csv(csv_path)
-        self.source_path = csv_path
-        return self.dataframe.copy()
+        try:
+            csv_path = Path(path)
+            if not csv_path.exists():
+                raise FileNotFoundError(f"Файл {csv_path} не существует")
+            
+            self.dataframe = pd.read_csv(csv_path)
+            if self.dataframe.empty:
+                raise ValueError("CSV файл пуст")
+                
+            self.source_path = csv_path
+            return self.dataframe.copy()
+        except Exception as e:
+            self.dataframe = None
+            self.source_path = None
+            raise Exception(f"Ошибка загрузки CSV: {str(e)}") from e
 
     def describe(self) -> DataSummary:
         if self.dataframe is None:
             raise ValueError("Dataset is not loaded yet.")
+        
+        if self.dataframe.empty:
+            raise ValueError("Dataset is empty.")
 
         buffer = StringIO()
         self.dataframe.info(buf=buffer)
@@ -55,4 +69,3 @@ class DataLoader:
             missing=missing_summary,
             info=info_text,
         )
-

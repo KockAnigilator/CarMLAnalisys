@@ -87,9 +87,46 @@ class CarPricePredictor:
             rf_estimators=rf_estimators,
         )
 
-    def predict(self, input_data: pd.DataFrame, model_name: str) -> pd.Series:
-        predictions = self.trainer.predict(model_name, input_data)
-        return pd.Series(predictions, name="predicted_price")
+    def predict(self, input_data: pd.DataFrame, model_name: str) -> pd.DataFrame:
+        """
+        Выполняет предсказания на новых данных.
+        
+        Важно: Входные данные должны быть УЖЕ предобработаны 
+        (т.е. прошли через preprocess_data с тем же config).
+        Модель sklearn уже выполняет свою предобработку в pipeline.
+        """
+        if input_data.empty:
+            raise ValueError("Input data is empty.")
+        
+        # Убираем target_column из входных данных, если он есть
+        data_for_prediction = input_data.copy()
+        if self.trainer.target_column in data_for_prediction.columns:
+            data_for_prediction = data_for_prediction.drop(columns=[self.trainer.target_column])
+        
+        predictions = self.trainer.predict(model_name, data_for_prediction)
+        result = input_data.copy()
+        result["predicted_price"] = predictions
+        return result
+    
+    def predict_raw(self, input_data: pd.DataFrame, model_name: str) -> pd.DataFrame:
+        """
+        Выполняет предсказания на сырых данных.
+        Автоматически применяет ту же предобработку,
+        что была использована при обучении.
+        """
+        if input_data.empty:
+            raise ValueError("Input data is empty.")
+        
+        if self.cleaned_df is None:
+            raise ValueError(
+                "Сначала нужно выполнить preprocess_data для настройки предобработчика."
+            )
+        
+        # Применяем ту же предобработку
+        processed_data = self.preprocessor.preprocess(input_data)
+        
+        # Выполняем предсказание
+        return self.predict(processed_data, model_name)
 
     def save_model(self, model_name: str, path: str | Path) -> Path:
         return self.trainer.save_model(model_name, path)

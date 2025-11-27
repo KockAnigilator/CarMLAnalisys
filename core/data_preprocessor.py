@@ -54,10 +54,19 @@ class DataPreprocessor:
         numeric_cols = df.select_dtypes(include="number").columns
         categorical_cols = df.select_dtypes(exclude="number").columns
 
-        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+        # Заполнение числовых столбцов медианой
+        if len(numeric_cols) > 0:
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+        
+        # Заполнение категориальных столбцов модой
         for col in categorical_cols:
             if df[col].isna().any():
-                df[col] = df[col].fillna(df[col].mode().iloc[0])
+                mode_values = df[col].mode()
+                if len(mode_values) > 0:
+                    df[col] = df[col].fillna(mode_values.iloc[0])
+                else:
+                    # Если моды нет, заполняем строкой "Unknown"
+                    df[col] = df[col].fillna("Unknown")
         return df
 
     def _encode_categoricals(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -69,5 +78,14 @@ class DataPreprocessor:
             categorical_cols = [
                 col for col in categorical_cols if col in self.config.encode_columns
             ]
-        return pd.get_dummies(df, columns=categorical_cols, drop_first=True)
+        
+        # Проверяем, что есть что кодировать
+        if categorical_cols:
+            try:
+                return pd.get_dummies(df, columns=categorical_cols, drop_first=True)
+            except Exception as e:
+                # Если ошибка кодирования, возвращаем исходные данные
+                print(f"Предупреждение: Не удалось закодировать категориальные признаки: {e}")
+                return df
+        return df
 

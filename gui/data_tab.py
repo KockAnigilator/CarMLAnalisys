@@ -6,22 +6,9 @@ from typing import Optional
 import pandas as pd
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QFileDialog,
-    QFormLayout,
-    QGridLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QProgressBar,
-    QSizePolicy,
-    QSpinBox,
-    QTableWidget,
-    QTableWidgetItem,
-    QTextEdit,
-    QVBoxLayout,
-    QWidget,
+    QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+    QLineEdit, QPushButton, QProgressBar, QSizePolicy, QSpinBox, QTableWidget,
+    QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget, QMessageBox
 )
 
 from core import CarPricePredictor, PreprocessingConfig
@@ -38,6 +25,7 @@ class DataTab(QWidget):
         super().__init__(parent)
         self.predictor = predictor
         self.current_path: Optional[Path] = None
+        self.current_worker: Optional[WorkerThread] = None
         self._init_ui()
 
     def _init_ui(self) -> None:
@@ -87,70 +75,111 @@ class DataTab(QWidget):
         main_layout.addWidget(preprocess_box)
         main_layout.addWidget(self.progress)
 
+    def _cleanup_worker(self) -> None:
+        """Безопасно завершает текущий worker."""
+        if self.current_worker and self.current_worker.isRunning():
+            self.current_worker.stop()
+        self.current_worker = None
+
     def _select_file(self) -> None:
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Выберите CSV файл", str(Path.cwd()), "CSV Files (*.csv)"
-        )
-        if not file_path:
-            return
-        self.current_path = Path(file_path)
-        self.path_display.setText(file_path)
-        self._load_data(file_path)
+        try:
+            # Завершаем предыдущий worker если он есть
+            self._cleanup_worker()
+            
+            file_path, _ = QFileDialog.getOpenFileName(
+                self, "Выберите CSV файл", str(Path.cwd()), "CSV Files (*.csv)"
+            )
+            if not file_path:
+                return
+            self.current_path = Path(file_path)
+            self.path_display.setText(file_path)
+            self._load_data(file_path)
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Ошибка при выборе файла: {str(e)}")
 
     def _load_data(self, file_path: str) -> None:
-        worker = WorkerThread(self.predictor.load_data, file_path)
-        worker.signals.progress.connect(self.progress.setValue)
-        worker.signals.finished.connect(self._on_data_loaded)
-        worker.signals.error.connect(self._on_error)
-        worker.start()
+        try:
+            self._cleanup_worker()
+            
+            self.current_worker = WorkerThread(self.predictor.load_data, file_path)
+            self.current_worker.signals.progress.connect(self.progress.setValue)
+            self.current_worker.signals.finished.connect(self._on_data_loaded)
+            self.current_worker.signals.error.connect(self._on_error)
+            self.current_worker.start()
+        except Exception as e:
+            self._on_error(e)
 
     def _on_data_loaded(self, summary) -> None:
-        self.progress.setValue(100)
-        self.summary_text.setPlainText(
-            f"Размер: {humanize_shape(summary.shape)}\n\n{summary.info}"
-        )
-        self._populate_table(summary.head)
-        self.data_loaded.emit(self.predictor.raw_df)
+        try:
+            self.progress.setValue(100)
+            self.summary_text.setPlainText(
+                f"Размер: {humanize_shape(summary.shape)}\n\n{summary.info}"
+            )
+            self._populate_table(summary.head)
+            self.data_loaded.emit(self.predictor.raw_df)
+            # Очищаем worker после успешного завершения
+            self._cleanup_worker()
+        except Exception as e:
+            self._on_error(e)
 
     def _populate_table(self, dataframe: pd.DataFrame) -> None:
-        self.preview_table.setRowCount(len(dataframe))
-        self.preview_table.setColumnCount(len(dataframe.columns))
-        self.preview_table.setHorizontalHeaderLabels(dataframe.columns.tolist())
-        for row_idx, (_, row) in enumerate(dataframe.iterrows()):
-            for col_idx, value in enumerate(row):
-                self.preview_table.setItem(
-                    row_idx, col_idx, QTableWidgetItem(str(value))
-                )
+        try:
+            self.preview_table.setRowCount(len(dataframe))
+            self.preview_table.setColumnCount(len(dataframe.columns))
+            self.preview_table.setHorizontalHeaderLabels(dataframe.columns.tolist())
+            for row_idx, (_, row) in enumerate(dataframe.iterrows()):
+                for col_idx, value in enumerate(row):
+                    self.preview_table.setItem(
+                        row_idx, col_idx, QTableWidgetItem(str(value))
+                    )
+        except Exception as e:
+            print(f"Ошибка при заполнении таблицы: {e}")
 
     def _run_preprocessing(self) -> None:
-        if self.predictor.raw_df is None:
-            self._on_error(ValueError("Сначала загрузите данные."))
-            return
+        try:
+            if self.predictor.raw_df is None:
+                self._on_error(ValueError("Сначала загрузите данные."))
+                return
 
-        config = PreprocessingConfig(
-            target_column=self.target_input.text().strip(),
-            drop_columns=[
-                col.strip()
-                for col in self.drop_columns_input.text().split(",")
-                if col.strip()
-            ],
-            high_missing_threshold=self.missing_spin.value() / 100,
-        )
+            self._cleanup_worker()
 
-        worker = WorkerThread(self.predictor.preprocess_data, config)
-        worker.signals.progress.connect(self.progress.setValue)
-        worker.signals.finished.connect(self._on_preprocessed)
-        worker.signals.error.connect(self._on_error)
-        worker.start()
+            config = PreprocessingConfig(
+                target_column=self.target_input.text().strip(),
+                drop_columns=[
+                    col.strip()
+                    for col in self.drop_columns_input.text().split(",")
+                    if col.strip()
+                ],
+                high_missing_threshold=self.missing_spin.value() / 100,
+            )
+
+            self.current_worker = WorkerThread(self.predictor.preprocess_data, config)
+            self.current_worker.signals.progress.connect(self.progress.setValue)
+            self.current_worker.signals.finished.connect(self._on_preprocessed)
+            self.current_worker.signals.error.connect(self._on_error)
+            self.current_worker.start()
+        except Exception as e:
+            self._on_error(e)
 
     def _on_preprocessed(self, dataframe: pd.DataFrame) -> None:
-        self.progress.setValue(100)
-        self.summary_text.append(
-            f"\nПредобработанные данные: {humanize_shape(dataframe.shape)}"
-        )
-        self.data_preprocessed.emit(dataframe)
+        try:
+            self.progress.setValue(100)
+            self.summary_text.append(
+                f"\nПредобработанные данные: {humanize_shape(dataframe.shape)}"
+            )
+            self.data_preprocessed.emit(dataframe)
+            self._cleanup_worker()
+        except Exception as e:
+            self._on_error(e)
 
-    def _on_error(self, error: Exception) -> None:  # pragma: no cover - обратная связь GUI
-        self.summary_text.append(f"\nОшибка: {error}")
+    def _on_error(self, error: Exception) -> None:
+        error_msg = f"Ошибка: {error}"
+        self.summary_text.append(f"\n{error_msg}")
         self.progress.setValue(0)
+        QMessageBox.critical(self, "Ошибка", error_msg)
+        self._cleanup_worker()
 
+    def closeEvent(self, event) -> None:
+        """Гарантируем завершение потоков при закрытии вкладки."""
+        self._cleanup_worker()
+        event.accept()
