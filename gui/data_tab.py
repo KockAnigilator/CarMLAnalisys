@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QProgressBar, QSizePolicy, QSpinBox, QTableWidget,
@@ -30,48 +30,66 @@ class DataTab(QWidget):
 
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(12, 12, 12, 12)
 
+        # Секция загрузки данных
         load_box = QGroupBox("Загрузка данных")
         load_layout = QHBoxLayout()
+        load_layout.setSpacing(8)
         self.path_display = QLineEdit()
         self.path_display.setReadOnly(True)
+        self.path_display.setPlaceholderText("Выберите CSV файл для загрузки...")
         load_button = QPushButton("Выбрать CSV")
         load_button.clicked.connect(self._select_file)
         load_layout.addWidget(QLabel("Файл:"))
-        load_layout.addWidget(self.path_display)
+        load_layout.addWidget(self.path_display, 1)
         load_layout.addWidget(load_button)
         load_box.setLayout(load_layout)
 
-        summary_box = QGroupBox("Статистика и превью")
+        # Секция статистики и превью
+        summary_box = QGroupBox("Статистика и превью данных")
         summary_layout = QGridLayout()
+        summary_layout.setSpacing(8)
         self.summary_text = QTextEdit()
         self.summary_text.setReadOnly(True)
+        self.summary_text.setPlaceholderText("Статистика загруженных данных появится здесь...")
         self.preview_table = QTableWidget()
         self.preview_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        summary_layout.addWidget(self.summary_text, 0, 0)
-        summary_layout.addWidget(self.preview_table, 0, 1)
+        summary_layout.addWidget(self.summary_text, 0, 0, 1, 1)
+        summary_layout.addWidget(self.preview_table, 0, 1, 1, 1)
+        summary_layout.setColumnStretch(0, 1)
+        summary_layout.setColumnStretch(1, 2)
         summary_box.setLayout(summary_layout)
 
+        # Секция предобработки
         preprocess_box = QGroupBox("Настройки предобработки")
         form = QFormLayout()
+        form.setSpacing(10)
+        form.setLabelAlignment(Qt.AlignRight)
         self.target_input = QLineEdit("price")
+        self.target_input.setPlaceholderText("Название столбца с целевой переменной")
         self.drop_columns_input = QLineEdit("car_ID, carwidth")
+        self.drop_columns_input.setPlaceholderText("Столбцы для удаления (через запятую)")
         self.missing_spin = QSpinBox()
         self.missing_spin.setRange(0, 100)
         self.missing_spin.setValue(30)
+        self.missing_spin.setSuffix("%")
         preprocess_button = QPushButton("Запустить предобработку")
         preprocess_button.clicked.connect(self._run_preprocessing)
         form.addRow("Целевая колонка:", self.target_input)
         form.addRow("Удалить столбцы:", self.drop_columns_input)
-        form.addRow("Порог пропусков (%):", self.missing_spin)
-        form.addRow(preprocess_button)
+        form.addRow("Порог пропусков:", self.missing_spin)
+        form.addRow("", preprocess_button)
         preprocess_box.setLayout(form)
 
+        # Прогресс бар
         self.progress = QProgressBar()
         self.progress.setValue(0)
+        self.progress.setTextVisible(True)
 
         main_layout.addWidget(load_box)
-        main_layout.addWidget(summary_box)
+        main_layout.addWidget(summary_box, 1)
         main_layout.addWidget(preprocess_box)
         main_layout.addWidget(self.progress)
 

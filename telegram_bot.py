@@ -36,7 +36,7 @@ METRICS_FILE = Path("artifacts") / "model_metrics.json"
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /start."""
     welcome_message = (
-        "🤖 Добро пожаловать в бот для получения метрик моделей!\n\n"
+        "Добро пожаловать в бот для получения метрик моделей!\n\n"
         "Доступные команды:\n"
         "/start - показать это сообщение\n"
         "/models - показать список доступных моделей\n"
@@ -50,17 +50,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /help."""
     help_text = (
-        "📚 Справка по использованию бота:\n\n"
+        "Справка по использованию бота:\n\n"
         "/models - получить список всех доступных моделей\n"
         "/metrics <имя_модели> - получить метрики модели в формате JSON\n\n"
         "Примеры:\n"
-        "• /metrics random_forest\n"
-        "• /metrics linear_regression\n\n"
+        "/metrics random_forest\n"
+        "/metrics linear_regression\n\n"
         "Метрики включают:\n"
-        "• MAE (Mean Absolute Error)\n"
-        "• MSE (Mean Squared Error)\n"
-        "• RMSE (Root Mean Squared Error)\n"
-        "• R² (Coefficient of Determination)"
+        "- MAE (Mean Absolute Error)\n"
+        "- MSE (Mean Squared Error)\n"
+        "- RMSE (Root Mean Squared Error)\n"
+        "- R² (Coefficient of Determination)"
     )
     await update.message.reply_text(help_text)
 
@@ -70,7 +70,7 @@ async def list_models(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     try:
         if not METRICS_FILE.exists():
             await update.message.reply_text(
-                "❌ Файл с метриками не найден. "
+                " Файл с метриками не найден. "
                 "Сначала обучите модели в приложении."
             )
             return
@@ -79,10 +79,10 @@ async def list_models(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             metrics_data = json.load(f)
 
         if not metrics_data:
-            await update.message.reply_text("❌ Нет доступных моделей.")
+            await update.message.reply_text(" Нет доступных моделей.")
             return
 
-        models_list = "📋 Доступные модели:\n\n"
+        models_list = "Доступные модели:\n\n"
         for i, model_name in enumerate(metrics_data.keys(), 1):
             models_list += f"{i}. {model_name}\n"
 
@@ -92,7 +92,7 @@ async def list_models(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception as e:
         logger.error(f"Ошибка при получении списка моделей: {e}")
         await update.message.reply_text(
-            f"❌ Ошибка при получении списка моделей: {str(e)}"
+            f" Ошибка при получении списка моделей: {str(e)}"
         )
 
 
@@ -101,7 +101,7 @@ async def get_metrics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     try:
         if not METRICS_FILE.exists():
             await update.message.reply_text(
-                "❌ Файл с метриками не найден. "
+                " Файл с метриками не найден. "
                 "Сначала обучите модели в приложении."
             )
             return
@@ -109,7 +109,7 @@ async def get_metrics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # Получаем имя модели из аргументов команды
         if not context.args:
             await update.message.reply_text(
-                "❌ Укажите имя модели.\n"
+                "Укажите имя модели.\n"
                 "Пример: /metrics random_forest\n"
                 "Используйте /models для списка доступных моделей."
             )
@@ -123,7 +123,7 @@ async def get_metrics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if model_name not in metrics_data:
             available_models = ", ".join(metrics_data.keys())
             await update.message.reply_text(
-                f"❌ Модель '{model_name}' не найдена.\n\n"
+                f"Модель '{model_name}' не найдена.\n\n"
                 f"Доступные модели: {available_models}\n"
                 "Используйте /models для полного списка."
             )
@@ -134,32 +134,36 @@ async def get_metrics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # Форматируем JSON для красивого отображения
         json_output = json.dumps(model_info, indent=2, ensure_ascii=False)
         
-        # Отправляем JSON
-        response = f"📊 Метрики модели: {model_name}\n\n```json\n{json_output}\n```"
+        # Отправляем JSON как документ для избежания проблем с парсингом
+        import io
+        json_bytes = json_output.encode('utf-8')
+        json_file = io.BytesIO(json_bytes)
+        json_file.name = f"{model_name}_metrics.json"
         
-        # Если сообщение слишком длинное, отправляем как файл
-        if len(response) > 4096:
-            # Отправляем как документ
-            import io
-            json_bytes = json_output.encode('utf-8')
-            json_file = io.BytesIO(json_bytes)
-            json_file.name = f"{model_name}_metrics.json"
-            await update.message.reply_document(
-                document=json_file,
-                caption=f"📊 Метрики модели: {model_name}"
-            )
-        else:
-            await update.message.reply_text(response, parse_mode='Markdown')
+        # Отправляем файл с кратким описанием
+        caption = f"Метрики модели: {model_name}"
+        await update.message.reply_document(
+            document=json_file,
+            caption=caption
+        )
+        
+        # Также отправляем краткую информацию текстом
+        metrics_summary = model_info.get('metrics', {})
+        summary_text = f"Метрики модели: {model_name}\n\n"
+        for key, value in metrics_summary.items():
+            summary_text += f"{key.upper()}: {value:.6f}\n"
+        
+        await update.message.reply_text(summary_text)
 
     except json.JSONDecodeError as e:
         logger.error(f"Ошибка парсинга JSON: {e}")
         await update.message.reply_text(
-            "❌ Ошибка при чтении файла метрик. Файл поврежден."
+            "Ошибка при чтении файла метрик. Файл поврежден."
         )
     except Exception as e:
         logger.error(f"Ошибка при получении метрик: {e}")
         await update.message.reply_text(
-            f"❌ Ошибка при получении метрик: {str(e)}"
+            f"Ошибка при получении метрик: {str(e)}"
         )
 
 
@@ -167,13 +171,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Обработчик текстовых сообщений."""
     text = update.message.text.lower()
     
-    if "метрики" in text or "metrics" in text:
+    text_lower = text.lower()
+    if "метрики" in text_lower or "metrics" in text_lower:
         await update.message.reply_text(
             "Используйте команду /metrics <имя_модели> для получения метрик.\n"
             "Пример: /metrics random_forest\n"
             "Используйте /models для списка доступных моделей."
         )
-    elif "модели" in text or "models" in text:
+    elif "модели" in text_lower or "models" in text_lower:
         await list_models(update, context)
     else:
         await update.message.reply_text(

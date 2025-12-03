@@ -38,16 +38,31 @@ class ModelTab(QWidget):
 
     def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+        layout.setContentsMargins(12, 12, 12, 12)
 
+        # Секция параметров обучения
         config_box = QGroupBox("Параметры обучения")
         form = QFormLayout()
+        form.setSpacing(10)
         self.test_size_input = QLineEdit("0.2")
+        self.test_size_input.setPlaceholderText("0.0 - 1.0")
         self.random_state_input = QLineEdit("42")
+        self.random_state_input.setPlaceholderText("Целое число")
         self.estimators_input = QSpinBox()
         self.estimators_input.setRange(100, 1000)
         self.estimators_input.setValue(300)
+        self.estimators_input.setSingleStep(50)
         self.model_selector = QComboBox()
-        self.model_selector.addItems(["random_forest", "linear_regression"])
+        self.model_selector.addItems([
+            "random_forest",
+            "gradient_boosting", 
+            "linear_regression",
+            "ridge",
+            "lasso",
+            "elastic_net",
+            "svr"
+        ])
         self.model_selector.currentTextChanged.connect(self._on_model_changed)
         train_button = QPushButton("Обучить модели")
         train_button.clicked.connect(self._train_models)
@@ -55,18 +70,24 @@ class ModelTab(QWidget):
         form.addRow("Random state:", self.random_state_input)
         form.addRow("Trees (RF):", self.estimators_input)
         form.addRow("Текущая модель:", self.model_selector)
-        form.addWidget(train_button)
+        form.addRow("", train_button)
         config_box.setLayout(form)
 
-        metrics_box = QGroupBox("Метрики")
+        # Секция метрик
+        metrics_box = QGroupBox("Метрики моделей")
         metrics_layout = QVBoxLayout()
+        metrics_layout.setSpacing(8)
         self.metrics_text = QTextEdit()
         self.metrics_text.setReadOnly(True)
+        self.metrics_text.setPlaceholderText("Метрики обученных моделей появятся здесь...")
         metrics_layout.addWidget(self.metrics_text)
         metrics_box.setLayout(metrics_layout)
 
+        # Секция действий с моделями
+        actions_box = QGroupBox("Действия с моделями")
         model_actions = QHBoxLayout()
-        save_button = QPushButton("Сохранить выбранную модель")
+        model_actions.setSpacing(8)
+        save_button = QPushButton("Сохранить модель")
         save_button.clicked.connect(self._save_model)
         load_button = QPushButton("Загрузить модель")
         load_button.clicked.connect(self._load_model)
@@ -75,12 +96,16 @@ class ModelTab(QWidget):
         model_actions.addWidget(save_button)
         model_actions.addWidget(load_button)
         model_actions.addWidget(predict_button)
+        actions_box.setLayout(model_actions)
 
+        # Прогресс бар
         self.progress = QProgressBar()
+        self.progress.setValue(0)
+        self.progress.setTextVisible(True)
 
         layout.addWidget(config_box)
-        layout.addWidget(metrics_box)
-        layout.addLayout(model_actions)
+        layout.addWidget(metrics_box, 1)
+        layout.addWidget(actions_box)
         layout.addWidget(self.progress)
 
     def _cleanup_worker(self) -> None:

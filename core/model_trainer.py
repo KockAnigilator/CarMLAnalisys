@@ -8,12 +8,21 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import (
+    GradientBoostingRegressor,
+    RandomForestRegressor,
+)
+from sklearn.linear_model import (
+    ElasticNet,
+    Lasso,
+    LinearRegression,
+    Ridge,
+)
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.svm import SVR
 
 
 @dataclass
@@ -87,23 +96,61 @@ class ModelTrainer:
             remainder="drop",
         )
 
+        # Проверяем размерность данных для выбора подходящих моделей
+        n_samples = len(X_train)
+        
         models: dict[str, Any] = {
             "random_forest": RandomForestRegressor(
-                n_estimators=rf_estimators, random_state=random_state
+                n_estimators=rf_estimators, 
+                random_state=random_state,
+                max_depth=20,
+                min_samples_split=5,
+                n_jobs=-1
+            ),
+            "gradient_boosting": GradientBoostingRegressor(
+                n_estimators=100,
+                learning_rate=0.1,
+                max_depth=5,
+                random_state=random_state
             ),
             "linear_regression": LinearRegression(),
+            "ridge": Ridge(alpha=1.0, random_state=random_state),
+            "lasso": Lasso(alpha=0.1, random_state=random_state, max_iter=2000),
+            "elastic_net": ElasticNet(alpha=0.1, l1_ratio=0.5, random_state=random_state, max_iter=2000),
         }
+        
+        # SVM только для небольших датасетов (может быть медленным)
+        if n_samples < 5000:
+            models["svr"] = SVR(kernel='rbf', C=100, gamma='scale', epsilon=0.1)
 
         for name, regressor in models.items():
-            pipeline = Pipeline(
-                steps=[("preprocessor", preprocessor), ("model", regressor)]
-            )
-            pipeline.fit(X_train, y_train)
-            predictions = pipeline.predict(X_test)
-            metrics = self._evaluate(y_test, predictions)
-            self.results[name] = ModelTrainingResult(
-                model_name=name, pipeline=pipeline, metrics=metrics
-            )
+            try:
+                pipeline = Pipeline(
+                    steps=[("preprocessor", preprocessor), ("model", regressor)]
+                )
+                pipeline.fit(X_train, y_train)
+                predictions = pipeline.predict(X_test)
+                
+                # Проверяем на некорректные предсказания (NaN, Inf)
+                if not np.isfinite(predictions).all():
+                    print(f"Предупреждение: Модель {name} выдала некорректные предсказания (NaN/Inf). Пропускаем.")
+                    continue
+                
+                # Проверяем на разумность метрик
+                metrics = self._evaluate(y_test, predictions)
+                
+                # Если метрики явно некорректные (очень большие числа или отрицательный R² близкий к -inf)
+                if abs(metrics['r2']) > 1e10 or metrics['rmse'] > 1e10:
+                    print(f"Предупреждение: Модель {name} выдала некорректные метрики. Пропускаем.")
+                    continue
+                
+                self.results[name] = ModelTrainingResult(
+                    model_name=name, pipeline=pipeline, metrics=metrics
+                )
+            except Exception as e:
+                print(f"Ошибка при обучении модели {name}: {e}")
+                continue
+                
         return self.results
 
     def predict(self, model_name: str, dataframe: pd.DataFrame) -> np.ndarray:

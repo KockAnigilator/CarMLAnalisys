@@ -70,22 +70,9 @@ class DataPreprocessor:
         return df
 
     def _encode_categoricals(self, df: pd.DataFrame) -> pd.DataFrame:
-        categorical_cols = df.select_dtypes(exclude="number").columns.tolist()
-        if not categorical_cols:
-            return df
-
-        if self.config.encode_columns:
-            categorical_cols = [
-                col for col in categorical_cols if col in self.config.encode_columns
-            ]
-        
-        # Проверяем, что есть что кодировать
-        if categorical_cols:
-            try:
-                return pd.get_dummies(df, columns=categorical_cols, drop_first=True)
-            except Exception as e:
-                # Если ошибка кодирования, возвращаем исходные данные
-                print(f"Предупреждение: Не удалось закодировать категориальные признаки: {e}")
-                return df
+        # НЕ кодируем категориальные признаки здесь
+        # Кодирование будет выполнено в пайплайне обучения через OneHotEncoder
+        # Это позволяет избежать проблем с двойным кодированием и мультиколлинеарностью
+        # Просто возвращаем данные как есть - категориальные признаки остаются строками
         return df
 

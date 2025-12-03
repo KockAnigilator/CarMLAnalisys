@@ -1,0 +1,20 @@
+{
+  "random_forest": {
+    "model_name": "random_forest",
+    "metrics": {
+      "mae": 1360.3286108602147,
+      "mse": 4027555.071606768,
+      "rmse": 2006.8769448092148,
+      "r2": 0.8729765199711467
+    }
+  },
+  "linear_regression": {
+    "model_name": "linear_regression",
+    "metrics": {
+      "mae": 4924894208958848.0,
+      "mse": 1.5950913187677879e+32,
+      "rmse": 1.262969246960427e+16,
+      "r2": -5.030695959990086e+24
+    }
+  }
+}
