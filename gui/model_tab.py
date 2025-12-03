@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
@@ -27,6 +28,8 @@ from utils import WorkerThread
 
 class ModelTab(QWidget):
     """Обучает, оценивает и сохраняет модели машинного обучения."""
+
+    models_trained = Signal()
 
     def __init__(self, predictor: CarPricePredictor, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -153,6 +156,8 @@ class ModelTab(QWidget):
         self.metrics_text.setPlainText("\n".join(message_lines))
         # Сохраняем метрики в JSON для Telegram бота
         self._save_metrics_to_json(results)
+        # Сигнализируем о завершении обучения для обновления выводов
+        self.models_trained.emit()
         self._cleanup_worker()
     
     def _save_metrics_to_json(self, results) -> None:

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QMainWindow, QTabWidget
 from core import CarPricePredictor
 
 from .analysis_tab import AnalysisTab
+from .conclusions_tab import ConclusionsTab
 from .data_tab import DataTab
 from .model_tab import ModelTab
 
@@ -29,12 +30,15 @@ class MainWindow(QMainWindow):
         self.data_tab = DataTab(self.predictor)
         self.analysis_tab = AnalysisTab(self.predictor)
         self.model_tab = ModelTab(self.predictor)
+        self.conclusions_tab = ConclusionsTab(self.predictor)
 
         self.data_tab.data_preprocessed.connect(self.analysis_tab.on_data_preprocessed)
+        self.model_tab.models_trained.connect(self.conclusions_tab._refresh_conclusions)
 
         tabs.addTab(self.data_tab, "Данные")
         tabs.addTab(self.analysis_tab, "Аналитика")
         tabs.addTab(self.model_tab, "Модели")
+        tabs.addTab(self.conclusions_tab, "Выводы")
         self.setCentralWidget(tabs)
 
     def _apply_styles(self) -> None:
