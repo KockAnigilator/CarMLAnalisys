@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -125,7 +126,28 @@ class ModelTab(QWidget):
             metrics = ", ".join(f"{k.upper()}: {v:.4f}" for k, v in result.metrics.items())
             message_lines.append(f"{name}: {metrics}")
         self.metrics_text.setPlainText("\n".join(message_lines))
+        # Сохраняем метрики в JSON для Telegram бота
+        self._save_metrics_to_json(results)
         self._cleanup_worker()
+    
+    def _save_metrics_to_json(self, results) -> None:
+        """Сохраняет метрики всех моделей в JSON файл для Telegram бота."""
+        try:
+            metrics_dir = Path("artifacts")
+            metrics_dir.mkdir(exist_ok=True)
+            metrics_file = metrics_dir / "model_metrics.json"
+            
+            metrics_data = {}
+            for name, result in results.items():
+                metrics_data[name] = {
+                    "model_name": result.model_name,
+                    "metrics": {k: float(v) for k, v in result.metrics.items()}
+                }
+            
+            with open(metrics_file, 'w', encoding='utf-8') as f:
+                json.dump(metrics_data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Ошибка при сохранении метрик в JSON: {e}")
 
     def _save_model(self) -> None:
         if not self.models_ready:
@@ -153,6 +175,12 @@ class ModelTab(QWidget):
         metrics = ", ".join(f"{k.upper()}: {v:.4f}" for k, v in result.metrics.items())
         self.metrics_text.append(f"Загружена модель {result.model_name}: {metrics}")
         self.models_ready = True
+        # Обновляем JSON с метриками (сохраняем все модели из trainer.results)
+        if hasattr(self.predictor.trainer, 'results') and self.predictor.trainer.results:
+            self._save_metrics_to_json(self.predictor.trainer.results)
+        else:
+            # Если результатов нет, сохраняем только загруженную модель
+            self._save_metrics_to_json({result.model_name: result})
 
     def _predict_new_data(self) -> None:
         if not self.models_ready:
